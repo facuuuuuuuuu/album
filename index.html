@@ -285,6 +285,17 @@
   <p>📖 Bienvenido al álbum virtual de Male. En cada página, podras subir una foto relacionada con cada consigna. Usá las flechitas para avanzar o volver. Muchas gracias y disfrutá de la fiesta.</p>
   <button onclick="cerrarInstructivo()">¡Entendido!</button>
 </div>
+<!-- Cargás Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<!-- Y recién después creás el cliente -->
+<script>
+  const supabase = window.supabase.createClient(
+    'https://ffepjyzhbcebtxxsrejl.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmZXBqeXpoYmNlYnR4eHNyZWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzODc3MjYsImV4cCI6MjA2ODk2MzcyNn0.sbbZVPwTQ8wKxmEpbNIC5Oen7VMeKqe17qJVWEk2X58'
+  );
+</script>
+
 
 <script>
   const consignas = [
@@ -318,7 +329,7 @@
     page.innerHTML = `
       <h2>${consigna}</h2>
       <img src="placeholder.jpg" alt="Foto ${consigna}">
-      <input type="file" accept="image/*">
+      <input type="file" accept="image/*" >
     `;
     book.appendChild(page);
   });
@@ -348,35 +359,56 @@
 
   // Guardar fotos
   document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll(".page").forEach((pagina, i) => {
-      const input = pagina.querySelector("input");
-      const img = pagina.querySelector("img");
-      const key = "foto_" + i;
-      const guardada = localStorage.getItem(key);
-      if (guardada) {
-        img.src = guardada;
-        completados++;
-      }
+  document.querySelectorAll(".page").forEach((pagina, i) => {
+  const input = pagina.querySelector("input");
+  const img = pagina.querySelector("img");
+  const key = "foto_" + i;
 
-      input.addEventListener("change", (e) => {
-        const archivo = e.target.files[0];
-        if (!archivo) return;
-        const lector = new FileReader();
-        lector.onload = ev => {
-          const dataURL = ev.target.result;
-          img.src = dataURL;
-          localStorage.setItem(key, dataURL);
-          mostrarMensaje("📸 ¡Foto guardada!");
-          completados++;
-          if (completados === consignas.length) {
-            mostrarMensaje("🎉 ¡Completaste el álbum! Male te va a amar 💖", 6000);
-            musica.pause();
-          }
-        };
-        lector.readAsDataURL(archivo);
+  const guardada = localStorage.getItem(key);
+  if (guardada) {
+    img.src = guardada;
+    completados++;
+  }
+
+  input.addEventListener("change", async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+
+    const nombreArchivo = `foto_${i}_${Date.now()}.jpg`;
+
+    const { data: subida, error } = await supabase.storage
+      .from('albummale')
+      .upload(nombreArchivo, archivo, {
+        cacheControl: '3600',
+        upsert: true
       });
-    });
+
+    if (error) {
+      mostrarMensaje("❌ Error al subir la imagen.");
+      console.error(error);
+      return;
+    }
+
+    const { data: publicURLData } = supabase
+      .storage
+      .from('albummale')
+      .getPublicUrl(nombreArchivo);
+
+    const url = publicURLData.publicUrl;
+    img.src = url;
+    localStorage.setItem(key, url);
+    mostrarMensaje("📸 ¡Foto subida!");
+
+    completados++;
+    if (completados === consignas.length) {
+      mostrarMensaje("🎉 ¡Completaste el álbum! Male te va a amar 💖", 6000);
+      musica.pause();
+    }
   });
+});
+  });
+
+  
 
   function cerrarInstructivo() {
     document.getElementById("instructivo").style.display = "none";
